@@ -19,12 +19,12 @@ jobs:
 
     steps:
       - uses: actions/checkout@v4
-      
+
       - uses: actions/setup-node@v4
         with:
           node-version: lts/*
           cache: 'npm'
-      
+
       - name: Cache Playwright browsers
         uses: actions/cache@v4
         with:
@@ -32,19 +32,22 @@ jobs:
           key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
           restore-keys: |
             playwright-${{ runner.os }}-
-      
+
       - name: Install dependencies
         run: npm ci
-      
+
       - name: Install Playwright Browsers
         run: npx playwright install --with-deps
-      
-      - name: Run Playwright tests
-        run: npx playwright test ${{ matrix.test-file }}
-      
-      - uses: actions/upload-artifact@v4
+
+      - name: Run Playwright test file
+        run: |
+          REPORT_DIR=playwright-report-${{ matrix.test-file }}
+          npx playwright test ${{ matrix.test-file }} --reporter=html --output=$REPORT_DIR
+
+      - name: Upload Playwright HTML report
+        uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
           name: playwright-report-${{ matrix.test-file }}
-          path: playwright-report/
+          path: playwright-report-${{ matrix.test-file }}
           retention-days: 30
