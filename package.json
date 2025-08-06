@@ -16,7 +16,10 @@
     "codegen": "playwright codegen",
     "lint": "eslint . --ext .ts,.js",
     "lint:fix": "eslint . --ext .ts,.js --fix",
-    "format": "prettier --write ."
+    "format": "prettier --write .",
+    "test:snapshots": "playwright test tests/visual/snapshot.test.ts",
+    "test:snapshots:update": "playwright test tests/visual/snapshot.test.ts --update-snapshots",
+    "test:snapshots:headed": "playwright test tests/visual/snapshot.test.ts --headed"
   },
   "keywords": [
     "playwright",

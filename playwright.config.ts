@@ -28,8 +28,8 @@ export default defineConfig({
       'Cache-Control': 'no-cache',
       'Pragma': 'no-cache',
     },
-    viewport: { width: 1366, height: 768 }, // Common resolution
-    ignoreHTTPSErrors: true,
+    viewport: { width: 1728, height: 1117 }, // Common resolution
+    ignoreHTTPSErrors: false,
     bypassCSP: true,
   },
 
@@ -63,4 +63,14 @@ export default defineConfig({
   webServer: undefined,
 
   outputDir: 'test-results/',
+
+  // Add snapshot configuration
+  expect: {
+    toHaveScreenshot: {
+      // Allow small differences due to fonts, rendering, etc.
+      threshold: 0.2,
+      // Ignore anti-aliasing differences
+      maxDiffPixels: 100,
+    },
+  },
 }); 

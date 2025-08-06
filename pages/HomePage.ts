@@ -24,7 +24,7 @@ export class HomePage {
     // Use data-testid locators ONLY - language-independent!
     this.cookieAcceptButton = page.getByTestId('consent-widget-accept-all');
     this.destinationSearchButton = page.getByTestId('destination-modal-button');
-    this.languageSelector = page.getByTestId('language-picker').locator('select'); // Use data-testid + select
+    this.languageSelector = page.getByTestId('language-picker').first().locator('select'); // Use data-testid + select
     this.mobileMenuToggle = page.getByTestId('nav-item-container-mobile').locator('button').first(); // Mobile nav toggle
     this.sailyLogo = page.getByTestId('section-Header').locator('a[href="/pl/"]').first(); // Logo in header
     this.promoCloseButton = page.getByTestId('announcement-bar-close'); // Found in MCP investigation
@@ -415,6 +415,319 @@ export class HomePage {
       );
       
       return criticalErrors.length === 0;
+    } catch {
+      return false;
+    }
+  }
+
+  // Navigation behavior methods
+  async hasWorkingLogoNavigation(): Promise<boolean> {
+    try {
+      await this.clickCountryDestination('turkey');
+      await TestHelpers.waitForPageLoad(this.page);
+      await this.clickLogo();
+      await TestHelpers.waitForPageLoad(this.page);
+      
+      const isOnHomepage = this.page.url().match(/saily\.com\/pl\/?$/);
+      const hasSearchButton = await this.destinationSearchButton.isVisible();
+      
+      return !!isOnHomepage && hasSearchButton;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasWorkingLanguageSelector(): Promise<boolean> {
+    try {
+      // Check if any language picker is visible (there are 2: mobile and desktop)
+      const languagePickers = this.page.getByTestId('language-picker');
+      const pickerCount = await languagePickers.count();
+      let isAnyPickerVisible = false;
+      
+      // Check if at least one language picker is visible
+      for (let i = 0; i < pickerCount; i++) {
+        if (await languagePickers.nth(i).isVisible()) {
+          isAnyPickerVisible = true;
+          break;
+        }
+      }
+      
+      if (!isAnyPickerVisible) return false;
+
+      // Check functionality of the select element
+      const currentLanguage = await this.getCurrentLanguage();
+      const hasCorrectDefault = currentLanguage === 'pl';
+
+      const languageOptions = this.languageSelector.locator('option');
+      const optionCount = await languageOptions.count();
+      const hasExpectedCount = optionCount === 14;
+
+      const hasEnglishOption = await languageOptions.locator('text=English').count() > 0;
+      const hasPolishOption = await languageOptions.locator('text=Polski').count() > 0;
+
+      return hasCorrectDefault && hasExpectedCount && hasEnglishOption && hasPolishOption;
+    } catch {
+      return false;
+    }
+  }
+
+
+
+  async hasWorkingMainNavigation(): Promise<boolean> {
+    try {
+      const navigationChecks = [
+        { selector: 'a[href*="/pl/what-is-esim/"]', name: 'What is eSIM link' },
+        { selector: 'a[href*="/pl/download-esim-app/"]', name: 'Download app link' },
+        { selector: 'a[href*="support.saily.com"]', name: 'Support link' }
+      ];
+
+      for (const check of navigationChecks) {
+        const element = this.page.locator(check.selector).first();
+        const isVisible = await element.isVisible();
+        if (!isVisible) return false;
+
+        const href = await element.getAttribute('href');
+        if (!href) return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+
+
+  async hasWorkingFooterNavigation(): Promise<boolean> {
+    try {
+      await TestHelpers.scrollToElement(this.page, 'footer');
+
+      const footerSections = [
+        'button[aria-expanded]', // Footer section buttons
+      ];
+
+      for (const selector of footerSections) {
+        const buttons = this.page.locator(selector);
+        const count = await buttons.count();
+        if (count < 3) return false; // Should have multiple footer sections
+      }
+
+      const legalLinks = [
+        'link[href*="/legal/privacy-policy/"]',
+        'link[href*="/legal/terms-of-service/"]'
+      ];
+
+      for (const selector of legalLinks) {
+        const link = this.page.locator(selector).first();
+        const isVisible = await link.isVisible();
+        if (!isVisible) return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasWorkingSocialMediaLinks(): Promise<boolean> {
+    try {
+      await TestHelpers.scrollToElement(this.page, 'footer');
+
+      const socialPlatforms = [
+        'facebook.com',
+        'x.com',
+        'linkedin.com',
+        'youtube.com',
+        'instagram.com',
+        'reddit.com'
+      ];
+
+      for (const platform of socialPlatforms) {
+        const socialLink = this.page.locator(`link[href*="${platform}"]`).first();
+        const isVisible = await socialLink.isVisible();
+        if (!isVisible) return false;
+
+        const href = await socialLink.getAttribute('href');
+        if (!href || !href.includes(platform)) return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasAllPaymentMethodIcons(): Promise<boolean> {
+    try {
+      await TestHelpers.scrollToElement(this.page, 'footer');
+
+      const paymentMethods = [
+        'apple', 'google', 'visa', 'mastercard', 
+        'amex', 'discover', 'union', 'jcb'
+      ];
+
+      for (const method of paymentMethods) {
+        const paymentIcon = this.page.locator(`img[alt*="${method}"], img[src*="${method}"]`).first();
+        const isVisible = await paymentIcon.isVisible();
+        if (!isVisible) return false;
+      }
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasWorkingAppDownloadLinks(): Promise<boolean> {
+    try {
+      const appStoreInfo = await this.getAppStoreInfo();
+      
+      const hasValidLinks = appStoreInfo.appStore.includes('saily.onelink.me') &&
+                           appStoreInfo.googlePlay.includes('saily.onelink.me');
+      
+      const hasValidRating = appStoreInfo.rating === '4.7';
+      
+      const hasReviewCount = appStoreInfo.reviewCount.includes('97 400');
+
+      const appStoreIconVisible = await this.page.locator('img[alt*="app store"]').first().isVisible();
+      const googlePlayIconVisible = await this.page.locator('img[alt*="google play"]').first().isVisible();
+
+      return hasValidLinks && hasValidRating && hasReviewCount && appStoreIconVisible && googlePlayIconVisible;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasWorkingPromotionalBanner(): Promise<boolean> {
+    try {
+      const isPromoVisible = await this.isPromoBarVisible();
+      
+      if (!isPromoVisible) {
+        return true; // If no promo is visible, that's valid
+      }
+
+      // If promo is visible, verify it can be closed
+      await this.closePromoBar();
+      const isPromoHidden = !(await this.isPromoBarVisible());
+      
+      return isPromoHidden;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasWorkingMobileNavigation(): Promise<boolean> {
+    try {
+      await TestHelpers.setMobileViewport(this.page);
+      await this.page.reload();
+      await TestHelpers.acceptCookiesIfVisible(this.page);
+
+      const mobileMenuToggle = this.page.getByRole('button', { name: 'Toggle sidebar' });
+      const isToggleVisible = await mobileMenuToggle.isVisible();
+      
+      if (!isToggleVisible) return false;
+
+      await mobileMenuToggle.click();
+      await this.page.waitForTimeout(500);
+
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasWorkingBreadcrumbNavigation(): Promise<boolean> {
+    try {
+      await this.clickCountryDestination('turkey');
+      await TestHelpers.waitForPageLoad(this.page);
+
+      const currentURL = this.page.url();
+      const isOnCountryPage = currentURL.includes('/pl/esim-turkey/');
+      
+      const h1Element = this.page.locator('h1');
+      const isH1Visible = await h1Element.isVisible();
+      
+      if (!isOnCountryPage || !isH1Visible) return false;
+
+      const pageTitle = await h1Element.textContent();
+      const hasTurkeyTitle = pageTitle?.includes('Turcji') || pageTitle?.includes('Turkey');
+
+      return !!hasTurkeyTitle;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasValidPopularDestinations(): Promise<boolean> {
+    try {
+      const destinations = await this.getPopularDestinations();
+      
+      if (destinations.length < 8) return false;
+
+      const allValid = destinations.every(destination => 
+        destination.name && 
+        TestHelpers.isValidPrice(destination.priceFrom) &&
+        destination.url.includes('/pl/esim-') &&
+        destination.code
+      );
+
+      const expectedCountries = ['Turkey', 'United States', 'Thailand', 'Malaysia'];
+      const foundCountries = destinations.map(d => d.name);
+      
+      const hasExpectedCountries = expectedCountries.every(country =>
+        foundCountries.some(name => 
+          name.toLowerCase().includes(country.toLowerCase()) ||
+          country.toLowerCase().includes(name.toLowerCase())
+        )
+      );
+
+      return allValid && hasExpectedCountries;
+    } catch {
+      return false;
+    }
+  }
+
+  async worksAcrossAllViewports(): Promise<boolean> {
+    try {
+      // Test desktop
+      await TestHelpers.setDesktopViewport(this.page);
+      await this.page.reload();
+      const desktopWorks = await this.destinationSearchButton.isVisible();
+
+      // Test tablet  
+      await TestHelpers.setTabletViewport(this.page);
+      await this.page.reload();
+      const tabletWorks = await this.destinationSearchButton.isVisible();
+
+      // Test mobile
+      await TestHelpers.setMobileViewport(this.page);
+      await this.page.reload();
+      const mobileWorks = await this.destinationSearchButton.isVisible() && 
+                          await this.page.locator('button[aria-haspopup="menu"]').isVisible();
+
+      return desktopWorks && tabletWorks && mobileWorks;
+    } catch {
+      return false;
+    }
+  }
+
+  async hasWorkingScrollBehavior(): Promise<boolean> {
+    try {
+      await TestHelpers.setDesktopViewport(this.page);
+
+      // Scroll to footer
+      await TestHelpers.scrollToElement(this.page, 'footer');
+      const footer = this.page.locator('footer');
+      const footerBox = await footer.boundingBox();
+      const footerInView = footerBox !== null;
+
+      // Scroll back to top
+      await this.page.evaluate(() => window.scrollTo(0, 0));
+      const header = this.page.locator('header, nav').first();
+      const headerBox = await header.boundingBox();
+      const headerInView = headerBox !== null;
+
+      return footerInView && headerInView;
     } catch {
       return false;
     }
