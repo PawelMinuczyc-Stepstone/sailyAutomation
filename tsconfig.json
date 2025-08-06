@@ -1,5 +1,5 @@
 {
-  "compilerOptions": {
+   "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
@@ -12,12 +12,12 @@
     "types": ["node", "@playwright/test"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["./src/*"],
       "@tests/*": ["./tests/*"],
       "@pages/*": ["./pages/*"],
       "@types/*": ["./types/*"],
       "@utils/*": ["./utils/*"],
-      "@fixtures/*": ["./fixtures/*"]
+      "@fixtures/*": ["./fixtures/*"],
+      "@config/*": ["./config/*"]
     }
   },
   "include": [
