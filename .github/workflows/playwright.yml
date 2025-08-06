@@ -1,52 +1,50 @@
 name: Playwright Tests for Saily
 
 on:
-  push:
-    branches: [ main, master ]
-  pull_request:
-    branches: [ main, master ]
   workflow_dispatch:
 
 jobs:
   test:
-    runs-on: ubuntu-latest
     timeout-minutes: 60
+    runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        test-file:
+          - tests/e2e/smoke.test.ts
+          - tests/e2e/navigation.test.ts
+          - tests/e2e/search.test.ts
+          - tests/e2e/country-page.test.ts
+          - tests/visual/snapshot.test.ts
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
-
-      - name: Setup Node.js
-        uses: actions/setup-node@v4
+      - uses: actions/checkout@v4
+      
+      - uses: actions/setup-node@v4
         with:
           node-version: lts/*
-
+          cache: 'npm'
+      
+      - name: Cache Playwright browsers
+        uses: actions/cache@v4
+        with:
+          path: ~/.cache/ms-playwright
+          key: playwright-${{ runner.os }}-${{ hashFiles('**/package-lock.json') }}
+          restore-keys: |
+            playwright-${{ runner.os }}-
+      
       - name: Install dependencies
         run: npm ci
-
-      - name: Install Playwright browsers
+      
+      - name: Install Playwright Browsers
         run: npx playwright install --with-deps
-
+      
       - name: Run Playwright tests
-        run: npx playwright test
-
-      - name: Upload HTML report
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
+        run: npx playwright test ${{ matrix.test-file }}
+      
+      - uses: actions/upload-artifact@v4
+        if: ${{ !cancelled() }}
         with:
-          name: html-report
-          path: reports/html-report/
-
-      - name: Upload test results (screenshots, videos, traces)
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
-        with:
-          name: test-results
-          path: test-results/
-
-      - name: Upload JUnit report
-        uses: actions/upload-artifact@v4
-        if: ${{ always() }}
-        with:
-          name: junit-report
-          path: reports/junit-report.xml
+          name: playwright-report-${{ matrix.test-file }}
+          path: playwright-report/
+          retention-days: 30
