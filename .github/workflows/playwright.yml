@@ -41,10 +41,10 @@ jobs:
       - name: Install Playwright browsers
         run: npx playwright install --with-deps
 
-      - name: Run Playwright tests
-        run: npx playwright test ${{ matrix.test-file }}
+      - name: Run Playwright test
+        run: npx playwright test ${{ matrix.test-file }} --reporter=html
 
-      - name: Sanitize test file name
+      - name: Sanitize test file name for artifact
         id: sanitize
         run: |
           SAFE_NAME=$(echo "${{ matrix.test-file }}" | sed 's/[^a-zA-Z0-9]/-/g')
@@ -54,6 +54,11 @@ jobs:
         uses: actions/upload-artifact@v4
         if: ${{ !cancelled() }}
         with:
-          name: playwright-report-${{ matrix.test-file }}
+          name: playwright-report-${{ steps.sanitize.outputs.safe_name }}
           path: playwright-report/
           retention-days: 30
+
+      - name: Add report link to summary
+        if: ${{ !cancelled() }}
+        run: |
+          echo "###Report uploaded: playwright-report-${{ steps.sanitize.outputs.safe_name }}" >> $GITHUB_STEP_SUMMARY
