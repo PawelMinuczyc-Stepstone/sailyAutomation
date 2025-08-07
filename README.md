@@ -71,6 +71,10 @@ npm run lint:fix
   - Extend CI matrix to include Firefox and WebKit consistently.
   - Add mobile device profiles (e.g., Galaxy S24, Pixel 8).
   - Implement negative-path and fault-injection tests in a lower test layer (e.g., integration, component).
+  - Implement missing tests!
+  - Split Page classes for desktop and mobile
+  - Stabilize snapshot tests
+  - For production - we need to use docker, tests databeses etc. 
 - **Performance**:
   - Define performance budgets.
   - Add load-time regression checks, including Core Web Vitals.
