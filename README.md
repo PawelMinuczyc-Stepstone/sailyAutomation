@@ -39,9 +39,6 @@ npm test
 # Run only end-to-end tests
 npm run test:e2e
 
-# Run only API tests
-npm run test:api
-
 # Update visual snapshots
 npm run test:snapshots -- --update-snapshots
 ```
