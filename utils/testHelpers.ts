@@ -4,14 +4,18 @@ export class TestHelpers {
   static async waitForPageLoad(page: Page, timeout = 10000) {
     try {
       // Check if we're blocked by looking at response status
-      const response = await page.waitForResponse(response => response.status() !== 0, { timeout: 5000 }).catch(() => null);
+      const response = await page
+        .waitForResponse(response => response.status() !== 0, { timeout: 5000 })
+        .catch(() => null);
       if (response && response.status() >= 400) {
         const isBlocked = await this.isPageBlocked(page);
         if (isBlocked) {
-          throw new Error(`Page blocked with status ${response.status()}: ${response.url()}`);
+          throw new Error(
+            `Page blocked with status ${response.status()}: ${response.url()}`
+          );
         }
       }
-      
+
       await page.waitForLoadState('domcontentloaded', { timeout });
     } catch (error) {
       // Check if we're on a blocked page before falling back
@@ -24,11 +28,19 @@ export class TestHelpers {
     }
   }
 
-  static async waitForElementToBeVisible(page: Page, selector: string, timeout = 10000) {
+  static async waitForElementToBeVisible(
+    page: Page,
+    selector: string,
+    timeout = 10000
+  ) {
     await page.waitForSelector(selector, { state: 'visible', timeout });
   }
 
-  static async waitForElementToBeHidden(page: Page, selector: string, timeout = 10000) {
+  static async waitForElementToBeHidden(
+    page: Page,
+    selector: string,
+    timeout = 10000
+  ) {
     await page.waitForSelector(selector, { state: 'hidden', timeout });
   }
 
@@ -37,7 +49,10 @@ export class TestHelpers {
   }
 
   static async takeScreenshot(page: Page, name: string) {
-    await page.screenshot({ path: `screenshots/${name}-${Date.now()}.png`, fullPage: true });
+    await page.screenshot({
+      path: `screenshots/${name}-${Date.now()}.png`,
+      fullPage: true,
+    });
   }
 
   static async acceptCookiesIfVisible(page: Page) {
@@ -63,19 +78,24 @@ export class TestHelpers {
 
   static async getPagePerformanceMetrics(page: Page) {
     return await page.evaluate(() => {
-      const perfData = performance.getEntriesByType('navigation')[0] as PerformanceNavigationTiming;
+      const perfData = performance.getEntriesByType(
+        'navigation'
+      )[0] as PerformanceNavigationTiming;
       return {
         loadTime: perfData.loadEventEnd - perfData.fetchStart,
-        domContentLoaded: perfData.domContentLoadedEventEnd - perfData.fetchStart,
-        firstContentfulPaint: performance.getEntriesByName('first-contentful-paint')[0]?.startTime || 0,
-        timeToInteractive: perfData.loadEventEnd - perfData.fetchStart
+        domContentLoaded:
+          perfData.domContentLoadedEventEnd - perfData.fetchStart,
+        firstContentfulPaint:
+          performance.getEntriesByName('first-contentful-paint')[0]
+            ?.startTime || 0,
+        timeToInteractive: perfData.loadEventEnd - perfData.fetchStart,
       };
     });
   }
 
   static async checkConsoleErrors(page: Page): Promise<string[]> {
     const errors: string[] = [];
-    page.on('console', (msg) => {
+    page.on('console', msg => {
       if (msg.type() === 'error') {
         errors.push(msg.text());
       }
@@ -91,7 +111,9 @@ export class TestHelpers {
     // Check if we're blocked before validating URL
     const isBlocked = await this.isPageBlocked(page);
     if (isBlocked) {
-      throw new Error('Cannot validate URL - page appears to be blocked by Cloudflare or similar protection');
+      throw new Error(
+        'Cannot validate URL - page appears to be blocked by Cloudflare or similar protection'
+      );
     }
     await expect(page).toHaveURL(expectedURL);
   }
@@ -106,15 +128,17 @@ export class TestHelpers {
         'Please complete the security check',
         'DDoS protection by Cloudflare',
         'Error 403',
-        'Error 1020'
+        'Error 1020',
       ];
 
-      const pageContent = await page.textContent('body').catch(() => '') || '';
+      const pageContent =
+        (await page.textContent('body').catch(() => '')) || '';
       const title = await page.title().catch(() => '');
-      
-      return blockingIndicators.some(indicator => 
-        pageContent.toLowerCase().includes(indicator.toLowerCase()) ||
-        title.toLowerCase().includes(indicator.toLowerCase())
+
+      return blockingIndicators.some(
+        indicator =>
+          pageContent.toLowerCase().includes(indicator.toLowerCase()) ||
+          title.toLowerCase().includes(indicator.toLowerCase())
       );
     } catch {
       return false;
@@ -123,18 +147,26 @@ export class TestHelpers {
 
   static async checkResponseStatus(page: Page): Promise<number | null> {
     try {
-      const response = await page.waitForResponse(() => true, { timeout: 1000 });
+      const response = await page.waitForResponse(() => true, {
+        timeout: 1000,
+      });
       return response.status();
     } catch {
       return null;
     }
   }
 
-  static async handleBlockedNavigation(page: Page, targetUrl: string): Promise<boolean> {
+  static async handleBlockedNavigation(
+    page: Page,
+    targetUrl: string
+  ): Promise<boolean> {
     try {
       // Navigate and check if blocked
-      const response = await page.goto(targetUrl, { waitUntil: 'domcontentloaded', timeout: 10000 });
-      
+      const response = await page.goto(targetUrl, {
+        waitUntil: 'domcontentloaded',
+        timeout: 10000,
+      });
+
       if (!response) {
         return false;
       }
@@ -143,11 +175,13 @@ export class TestHelpers {
       if (status >= 400) {
         const isBlocked = await this.isPageBlocked(page);
         if (isBlocked) {
-          console.warn(`Navigation to ${targetUrl} was blocked (status: ${status})`);
+          console.warn(
+            `Navigation to ${targetUrl} was blocked (status: ${status})`
+          );
           return false;
         }
       }
-      
+
       return true;
     } catch (error) {
       console.warn(`Failed to navigate to ${targetUrl}:`, error);
@@ -155,7 +189,11 @@ export class TestHelpers {
     }
   }
 
-  static async validateElementText(page: Page, selector: string, expectedText: string) {
+  static async validateElementText(
+    page: Page,
+    selector: string,
+    expectedText: string
+  ) {
     await expect(page.locator(selector)).toHaveText(expectedText);
   }
 
@@ -220,41 +258,15 @@ export class TestHelpers {
       validCountries: ['Spain', 'Turkey', 'Thailand', 'USA', 'France'],
       invalidCountries: ['Atlantis', 'XYZ123', 'NotACountry'],
       commonSearchTerms: ['Spain', 'Europe', 'Asia', 'Global'],
-      dataPackageSizes: ['1GB', '3GB', '5GB', '10GB', '20GB', 'Unlimited']
+      dataPackageSizes: ['1GB', '3GB', '5GB', '10GB', '20GB', 'Unlimited'],
     };
   }
 
-  static async humanLikeDelay(minMs: number = 500, maxMs: number = 2000): Promise<void> {
+  static async humanLikeDelay(
+    minMs: number = 500,
+    maxMs: number = 2000
+  ): Promise<void> {
     const delay = Math.floor(Math.random() * (maxMs - minMs + 1)) + minMs;
     await new Promise(resolve => setTimeout(resolve, delay));
   }
-
-  static async setupAntiDetection(page: Page): Promise<void> {
-    // Remove webdriver property
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'webdriver', {
-        get: () => undefined,
-      });
-    });
-
-    // Add random mouse movements
-    await page.addInitScript(() => {
-      const originalMouseMove = document.onmousemove;
-      document.onmousemove = function(event) {
-        if (originalMouseMove) originalMouseMove.call(this, event);
-        // Add small random movements
-        if (Math.random() < 0.1) {
-          const x = event.clientX + (Math.random() - 0.5) * 10;
-          const y = event.clientY + (Math.random() - 0.5) * 10;
-        }
-      };
-    });
-
-    // Override navigator.languages
-    await page.addInitScript(() => {
-      Object.defineProperty(navigator, 'languages', {
-        get: () => ['en-US', 'en', 'pl'],
-      });
-    });
-  }
-} 
+}

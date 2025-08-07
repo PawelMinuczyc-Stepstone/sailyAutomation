@@ -1,5 +1,5 @@
 {
-   "compilerOptions": {
+  "compilerOptions": {
     "target": "ES2022",
     "module": "ESNext",
     "moduleResolution": "node",
@@ -18,7 +18,10 @@
       "@utils/*": ["./utils/*"],
       "@fixtures/*": ["./fixtures/*"],
       "@config/*": ["./config/*"]
-    }
+    },
+    "noUnusedLocals": true,
+    "noUnusedParameters": true,
+    "noImplicitReturns": true
   },
   "include": [
     "tests/**/*",
@@ -28,9 +31,5 @@
     "fixtures/**/*",
     "config/**/*"
   ],
-  "exclude": [
-    "node_modules",
-    "playwright-report",
-    "test-results"
-  ]
-} 
+  "exclude": ["node_modules", "playwright-report", "test-results"]
+}

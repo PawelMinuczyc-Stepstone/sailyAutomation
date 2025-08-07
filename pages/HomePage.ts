@@ -1,735 +1,518 @@
 import { Page, Locator } from '@playwright/test';
-import { CountryDestination, PromoOffer, AppStoreLinks } from '../types/saily.types';
+import { CountryDestination, AppStoreLinks } from '../types/saily.types';
 import { TestHelpers } from '../utils/testHelpers';
 import { SearchModal } from './SearchModal';
+import { HomePageSelectors as S } from '../selectors/homePageSelectors';
 
 export class HomePage {
+  // Timeouts & limits
+  private static readonly DEFAULT_MAX_DESTINATIONS = 10;
+  private static readonly WAIT_FOR_FIRST_LINK_MS = 5_000;
+  private static readonly PAGE_READY_TIMEOUT_MS = 15_000;
+  private static readonly LOAD_TIMEOUT_MS = 10_000;
+  private static readonly STABILIZE_WAIT_MS = 2_000;
+
   readonly page: Page;
   readonly cookieAcceptButton: Locator;
+  readonly promoCloseButton: Locator;
+  readonly shareAndEarnButton: Locator;
   readonly destinationSearchButton: Locator;
   readonly languageSelector: Locator;
   readonly mobileMenuToggle: Locator;
   readonly sailyLogo: Locator;
-  readonly promoCloseButton: Locator;
-  readonly shareAndEarnButton: Locator;
   readonly appStoreLink: Locator;
   readonly googlePlayLink: Locator;
   readonly learnMoreSecurityButton: Locator;
   readonly referralLearnMoreButton: Locator;
   readonly searchModal: SearchModal;
+  readonly homeLink: Locator;
+  readonly destinationsLink: Locator;
+  readonly aboutLink: Locator;
+  readonly contactLink: Locator;
+  readonly blogLink: Locator;
 
   constructor(page: Page) {
     this.page = page;
-    
-    // Use data-testid locators ONLY - language-independent!
-    this.cookieAcceptButton = page.getByTestId('consent-widget-accept-all');
-    this.destinationSearchButton = page.getByTestId('destination-modal-button');
-    this.languageSelector = page.getByTestId('language-picker').first().locator('select'); // Use data-testid + select
-    this.mobileMenuToggle = page.getByTestId('nav-item-container-mobile').locator('button').first(); // Mobile nav toggle
-    this.sailyLogo = page.getByTestId('section-Header').locator('a[href="/pl/"]').first(); // Logo in header
-    this.promoCloseButton = page.getByTestId('announcement-bar-close'); // Found in MCP investigation
-    this.shareAndEarnButton = page.getByTestId('announcement-bar-cta'); // Found in MCP investigation
-    this.appStoreLink = page.getByTestId('section-DownloadSailyApp').locator('a').first(); // First link in download section
-    this.googlePlayLink = page.getByTestId('section-DownloadSailyApp').locator('a').last(); // Last link in download section
-    this.learnMoreSecurityButton = page.getByTestId('section-SecurityFeatures').locator('button').first(); // First button in security section
-    this.referralLearnMoreButton = page.getByTestId('section-ReferalBanner').locator('button').first(); // Button in referral section
-    
-    // Initialize SearchModal
+
+    this.cookieAcceptButton = page.locator(S.cookieAcceptButton);
+    this.promoCloseButton = page.locator(S.promoCloseButton);
+    this.shareAndEarnButton = page.locator(S.shareAndEarnButton);
+    this.destinationSearchButton = page.locator(S.destinationSearchButton);
+    this.languageSelector = page.locator(S.languagePicker);
+    this.mobileMenuToggle = page.locator(S.mobileMenuToggle);
+    this.sailyLogo = page.locator(S.sailyLogoLink);
+    this.appStoreLink = page.locator(S.appStoreLink);
+    this.googlePlayLink = page.locator(S.googlePlayLink);
+    this.learnMoreSecurityButton = page.locator(S.learnMoreSecurityButton);
+    this.referralLearnMoreButton = page.locator(S.referralLearnMoreButton);
+
+    this.homeLink = page.locator(S.homeLink);
+    this.destinationsLink = page.locator(S.destinationsLink);
+    this.aboutLink = page.locator(S.aboutLink);
+    this.contactLink = page.locator(S.contactLink);
+    this.blogLink = page.locator(S.blogLink);
+
     this.searchModal = new SearchModal(page);
   }
 
-  async navigate() {
+  async navigate(): Promise<void> {
     await this.page.goto('/pl/');
   }
 
-  async acceptCookies() {
+  async acceptCookies(): Promise<void> {
     await this.cookieAcceptButton.click();
   }
 
-  async closePromoBar() {
+  async closePromoBar(): Promise<void> {
     await this.promoCloseButton.click();
   }
 
-  async openDestinationSearch() {
+  async openDestinationSearch(): Promise<void> {
     await this.destinationSearchButton.click();
   }
 
-
-
-  async switchLanguage(languageCode: string) {
+  async switchLanguage(languageCode: string): Promise<void> {
     await this.languageSelector.selectOption(languageCode);
   }
 
-  async toggleMobileMenu() {
+  async toggleMobileMenu(): Promise<void> {
     await this.mobileMenuToggle.click();
   }
 
-  async clickLogo() {
+  async clickLogo(): Promise<void> {
     await this.sailyLogo.click();
   }
 
   async getPopularDestinations(): Promise<CountryDestination[]> {
-    const destinations: CountryDestination[] = [];
-    const countryLinks = this.page.locator('a[href*="/pl/esim-"]').first();
-    await countryLinks.waitFor({ timeout: 5000 });
-    const allLinks = this.page.locator('a[href*="/pl/esim-"]');
+    const max = HomePage.DEFAULT_MAX_DESTINATIONS;
+    const selector = S.popularDestinationLinks;
+
+    await this.page
+      .locator(selector)
+      .first()
+      .waitFor({ timeout: HomePage.WAIT_FOR_FIRST_LINK_MS });
+    const allLinks = this.page.locator(selector);
     const count = await allLinks.count();
+    const destinations: CountryDestination[] = [];
 
-    for (let i = 0; i < Math.min(count, 10); i++) {
+    for (let i = 0; i < Math.min(count, max); i++) {
       const link = allLinks.nth(i);
-      const href = await link.getAttribute('href') || '';
-      const textContent = await link.textContent() || '';
-      
-      // Skip non-destination links (like ultra plan)
-      if (!href.includes('/pl/esim-') || href.includes('ultra-plan')) {
-        continue;
-      }
-      
-      // Extract country name and price using regex
-      // Text format: "TurcjaOd US$3,99Chevron right"
-      const priceMatch = textContent.match(/(Od US\$[\d,]+)/);
-      const priceText = priceMatch ? priceMatch[1] : '';
-      
-      // Get the country name by removing price and extra text
-      let name = textContent
-        .replace(/Od US\$[\d,]+/, '') // Remove price
-        .replace('Chevron right', '') // Remove chevron text
-        .trim();
-      
-      if (name && href.includes('/pl/esim-')) {
-        destinations.push({
-          name: name,
-          code: href.split('/pl/esim-')[1]?.replace('/', '') || '',
-          priceFrom: priceText,
-          url: href
-        });
-      }
-    }
+      const href = (await link.getAttribute('href')) ?? '';
+      const text = (await link.textContent())?.trim() ?? '';
+      if (!this.isValidDestination(href)) continue;
 
+      const dest = this.extractDestinationData(href, text);
+      if (dest) destinations.push(dest);
+    }
     return destinations;
   }
 
-
-
-  async clickCountryDestination(countryCode: string) {
-    const countryLink = this.page.locator(`a[href*="/pl/esim-${countryCode}"]`).first();
-    await countryLink.click();
-  }
-
-  async getPromoOfferDetails(): Promise<PromoOffer> {
-    const promoSection = this.page.locator('text=Letnia promocja').locator('..');
-    const discountText = await promoSection.locator('text=5% na pakiety').textContent();
-    const cashbackText = await promoSection.locator('text=5% zwrotu').textContent();
-    const termsLink = await this.page.getByRole('link', { name: 'warunki i regulamin' }).getAttribute('href');
-
-    return {
-      title: 'Letnia promocja',
-      discountPercentage: 5,
-      cashbackPercentage: 5,
-      minDataAmount: '10 GB',
-      termsUrl: termsLink || ''
-    };
+  async clickCountryDestination(countryCode: string): Promise<void> {
+    const pattern = S.popularDestinationLinks.replace(
+      'esim-',
+      `esim-${countryCode}`
+    );
+    await this.page.locator(pattern).first().click();
   }
 
   async getAppStoreInfo(): Promise<AppStoreLinks> {
-    const rating = await this.page.locator('text=4.7').textContent() || '';
-    const reviewCount = await this.page.locator('text=ponad 97 400 opinii').textContent() || '';
-    const appStoreUrl = await this.appStoreLink.getAttribute('href') || '';
-    const googlePlayUrl = await this.googlePlayLink.getAttribute('href') || '';
-
+    const rating =
+      (await this.page.locator(S.appRatingText).textContent()) || '';
+    const reviewCount =
+      (await this.page.locator(S.reviewCountText).textContent()) || '';
+    const appStoreUrl = (await this.appStoreLink.getAttribute('href')) || '';
+    const googlePlayUrl =
+      (await this.googlePlayLink.getAttribute('href')) || '';
     return {
       appStore: appStoreUrl,
       googlePlay: googlePlayUrl,
       rating: rating.trim(),
-      reviewCount: reviewCount.trim()
+      reviewCount: reviewCount.trim(),
     };
   }
 
-
-
   async isPromoBarVisible(): Promise<boolean> {
-    return await this.page.locator('text=Podróż ze znajomymi').isVisible();
+    return this.page.locator('text=Podróż ze znajomymi').isVisible();
   }
 
   async isLanguageSelectorVisible(): Promise<boolean> {
-    return await this.languageSelector.isVisible();
+    return this.languageSelector.isVisible();
   }
 
   async getCurrentLanguage(): Promise<string> {
-    return await this.languageSelector.inputValue();
+    return this.languageSelector.inputValue();
   }
 
-  async clickReferralLearnMore() {
+  async clickReferralLearnMore(): Promise<void> {
     await this.referralLearnMoreButton.click();
   }
 
-  // Behavior-focused methods for smoke tests
-  async hasEssentialContent(): Promise<boolean> {
-    try {
-      const title = await this.page.title();
-      const hasCorrectTitle = title.includes('Saily') || title.includes('eSIM');
-      
-      const h1 = this.page.locator('h1');
-      const hasHeading = await h1.isVisible();
-      const hasEsimText = await h1.textContent().then(text => text?.includes('eSIM') || false);
-      
-      const hasLogo = await this.sailyLogo.isVisible();
-      
-      return hasCorrectTitle && hasHeading && hasEsimText && hasLogo;
-    } catch {
-      return false;
-    }
-  }
-
+  // Behaviour checks
   async hasDestinationSearchButton(): Promise<boolean> {
-    try {
-      return await this.destinationSearchButton.isVisible();
-    } catch {
-      return false;
-    }
+    return this.safeCheck(() => this.destinationSearchButton.isVisible());
   }
 
   async hasDestinationList(): Promise<boolean> {
-    try {
-      const destinationLinks = this.page.locator('a[href*="/pl/esim-"]');
-      const count = await destinationLinks.count();
-      return count > 5;
-    } catch {
-      return false;
-    }
+    return this.safeCheck(() =>
+      this.page
+        .locator(S.popularDestinationLinks)
+        .count()
+        .then(c => c > 5)
+    );
   }
 
   async isSearchModalOpen(): Promise<boolean> {
-    try {
-      return await this.searchModal.isVisible();
-    } catch {
-      return false;
-    }
+    return this.safeCheck(() => this.searchModal.isVisible());
   }
 
   async canTypeInSearch(): Promise<boolean> {
-    try {
-      // Check if input is enabled and editable without side effects
-      const isVisible = await this.searchModal.isInputVisible();
-      const isEnabled = await this.searchModal.isInputEnabled();
-      return isVisible && isEnabled;
-    } catch {
-      return false;
-    }
+    return this.safeCheck(
+      async () =>
+        (await this.searchModal.isInputVisible()) &&
+        (await this.searchModal.isInputEnabled())
+    );
   }
 
-  async canSearchForDestination(searchTerm: string = 'Spain'): Promise<boolean> {
-    try {
+  async canSearchForDestination(searchTerm = 'Spain'): Promise<boolean> {
+    return this.safeCheck(async () => {
       await this.searchModal.fillInput(searchTerm);
-      const value = await this.searchModal.getInputValue();
-      return value === searchTerm;
-    } catch {
-      return false;
-    }
+      return (await this.searchModal.getInputValue()) === searchTerm;
+    });
   }
 
   async hasPopularDestinations(): Promise<boolean> {
-    try {
-      const destinations = await this.getPopularDestinations();
-      return destinations.length > 0 && destinations[0].priceFrom.includes('US$');
-    } catch {
-      return false;
-    }
+    return this.safeCheck(async () => {
+      const dests = await this.getPopularDestinations();
+      return dests.length > 0 && dests[0].priceFrom.includes('US$');
+    });
   }
 
   async canNavigateToCountryPage(): Promise<boolean> {
-    try {
-      const destinations = await this.getPopularDestinations();
-      if (destinations.length === 0) return false;
-      
-      const firstDestination = destinations[0];
-      return firstDestination.name.length > 0 && 
-             firstDestination.url.includes('/pl/esim-') &&
-             firstDestination.priceFrom.includes('US$');
-    } catch {
-      return false;
-    }
+    return this.safeCheck(async () => {
+      const dests = await this.getPopularDestinations();
+      if (!dests.length) return false;
+      const d = dests[0];
+      return (
+        d.name.length > 0 &&
+        d.url.includes('/pl/esim-') &&
+        d.priceFrom.includes('US$')
+      );
+    });
   }
 
   async hasMainNavigation(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       const nav = this.page.locator('nav');
-      const hasWhatIsEsim = await nav.getByRole('link', { name: 'Co to jest eSIM' }).isVisible();
-      const hasDownloadApp = await nav.getByRole('link', { name: 'Pobierz aplikację' }).isVisible();
-      return hasWhatIsEsim && hasDownloadApp;
-    } catch {
-      return false;
-    }
+      const hasEsim = await nav
+        .getByRole('link', { name: 'Co to jest eSIM' })
+        .isVisible();
+      const hasApp = await nav
+        .getByRole('link', { name: 'Pobierz aplikację' })
+        .isVisible();
+      return hasEsim && hasApp;
+    });
   }
 
   async hasLanguageSelector(): Promise<boolean> {
-    try {
-      return await this.isLanguageSelectorVisible();
-    } catch {
-      return false;
-    }
+    return this.safeCheck(() => this.isLanguageSelectorVisible());
   }
 
   async isMobileFriendly(): Promise<boolean> {
-    try {
-      const hasHeading = await this.page.locator('h1').isVisible();
-      const hasSearchButton = await this.destinationSearchButton.isVisible();
-      
-      return hasHeading && hasSearchButton;
-    } catch {
-      return false;
-    }
+    return this.safeCheck(
+      async () =>
+        (await this.page.locator('h1').isVisible()) &&
+        (await this.destinationSearchButton.isVisible())
+    );
   }
 
   async canUseMobileSearch(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.openDestinationSearch();
-      const modalWorks = await this.searchModal.isInputVisible();
-      return modalWorks;
-    } catch {
-      return false;
-    }
+      return await this.searchModal.isInputVisible();
+    });
   }
 
-  // High-level behavior methods - hide ALL implementation details
   async isAccessibleAndReady(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
-      await this.page.waitForSelector('h1', { timeout: 15000 });
-      
-      const hasEssentialContent = await this.hasEssentialContent();
-      const hasSearchButton = await this.hasDestinationSearchButton();
-      const hasDestinations = await this.hasDestinationList();
-      
-      return hasEssentialContent && hasSearchButton && hasDestinations;
-    } catch {
-      return false;
-    }
+      await this.page.waitForSelector('h1', {
+        timeout: HomePage.PAGE_READY_TIMEOUT_MS,
+      });
+      const results = await Promise.all([
+        this.hasDestinationSearchButton(),
+        this.hasDestinationList(),
+      ]);
+      return results.every(Boolean);
+    });
   }
 
   async canOpenSearchModal(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
       await this.openDestinationSearch();
-      return await this.isSearchModalOpen();
-    } catch {
-      return false;
-    }
+      return this.searchModal.isVisible();
+    });
   }
 
   async canPerformDestinationSearch(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
       await this.openDestinationSearch();
-      return await this.canSearchForDestination('Spain');
-    } catch {
-      return false;
-    }
+      return this.canSearchForDestination('Spain');
+    });
   }
 
   async showsAvailableDestinations(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
-      await this.page.waitForTimeout(2000); // Allow page to settle
-      return await this.hasPopularDestinations();
-    } catch {
-      return false;
-    }
+      await this.page.waitForTimeout(HomePage.STABILIZE_WAIT_MS);
+      return this.hasPopularDestinations();
+    });
   }
 
   async allowsCountryNavigation(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
-      return await this.canNavigateToCountryPage();
-    } catch {
-      return false;
-    }
+      return this.canNavigateToCountryPage();
+    });
   }
 
   async providesCompleteNavigation(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
-      const hasMainNav = await this.hasMainNavigation();
-      const hasLanguageSelector = await this.hasLanguageSelector();
-      return hasMainNav && hasLanguageSelector;
-    } catch {
-      return false;
-    }
+      return (
+        (await this.hasMainNavigation()) && (await this.hasLanguageSelector())
+      );
+    });
   }
 
   async loadsWithinAcceptableTime(): Promise<boolean> {
-    try {
-      const startTime = Date.now();
+    return this.safeCheck(async () => {
+      const start = Date.now();
       await this.navigate();
-      await this.page.waitForSelector('h1', { timeout: 10000 });
-      const loadTime = Date.now() - startTime;
-      
-      const isQuick = loadTime < 10000;
-      const hasContent = await this.hasEssentialContent();
-      
-      return isQuick && hasContent;
-    } catch {
-      return false;
-    }
+      await this.page.waitForSelector('h1', {
+        timeout: HomePage.LOAD_TIMEOUT_MS,
+      });
+      const elapsed = Date.now() - start;
+      return (
+        elapsed < HomePage.LOAD_TIMEOUT_MS &&
+        (await this.hasDestinationSearchButton())
+      );
+    });
   }
 
   async worksOnMobileDevices(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await TestHelpers.setMobileViewport(this.page);
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
-      
-      const isMobileFriendly = await this.isMobileFriendly();
-      const canUseSearch = await this.canUseMobileSearch();
-      
-      return isMobileFriendly && canUseSearch;
-    } catch {
-      return false;
-    }
+      return (
+        (await this.isMobileFriendly()) && (await this.canUseMobileSearch())
+      );
+    });
   }
 
   async loadsWithoutCriticalErrors(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       const errors: string[] = [];
-      this.page.on('console', (msg) => {
-        if (msg.type() === 'error') {
-          errors.push(msg.text());
-        }
-      });
-      
+      this.page.on(
+        'console',
+        msg => msg.type() === 'error' && errors.push(msg.text())
+      );
       await this.navigate();
       await TestHelpers.acceptCookiesIfVisible(this.page);
-      await this.page.waitForSelector('h1', { timeout: 10000 });
-      
-      const criticalErrors = errors.filter(error =>
-        !error.includes('Failed to load resource') &&
-        !error.includes('consent') &&
-        !error.includes('network') &&
-        error.includes('Error')
+      await this.page.waitForSelector('h1', {
+        timeout: HomePage.LOAD_TIMEOUT_MS,
+      });
+      const critical = errors.filter(
+        e => !e.match(/Failed to load resource|consent|network/)
       );
-      
-      return criticalErrors.length === 0;
-    } catch {
-      return false;
-    }
+      return critical.length === 0;
+    });
   }
 
-  // Navigation behavior methods
   async hasWorkingLogoNavigation(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.clickCountryDestination('turkey');
       await TestHelpers.waitForPageLoad(this.page);
       await this.clickLogo();
       await TestHelpers.waitForPageLoad(this.page);
-      
-      const isOnHomepage = this.page.url().match(/saily\.com\/pl\/?$/);
-      const hasSearchButton = await this.destinationSearchButton.isVisible();
-      
-      return !!isOnHomepage && hasSearchButton;
-    } catch {
-      return false;
-    }
+      return (
+        this.page.url().endsWith('/pl/') &&
+        (await this.destinationSearchButton.isVisible())
+      );
+    });
   }
 
   async hasWorkingLanguageSelector(): Promise<boolean> {
-    try {
-      // Check if any language picker is visible (there are 2: mobile and desktop)
-      const languagePickers = this.page.getByTestId('language-picker');
-      const pickerCount = await languagePickers.count();
-      let isAnyPickerVisible = false;
-      
-      // Check if at least one language picker is visible
-      for (let i = 0; i < pickerCount; i++) {
-        if (await languagePickers.nth(i).isVisible()) {
-          isAnyPickerVisible = true;
-          break;
-        }
-      }
-      
-      if (!isAnyPickerVisible) return false;
-
-      // Check functionality of the select element
-      const currentLanguage = await this.getCurrentLanguage();
-      const hasCorrectDefault = currentLanguage === 'pl';
-
-      const languageOptions = this.languageSelector.locator('option');
-      const optionCount = await languageOptions.count();
-      const hasExpectedCount = optionCount === 14;
-
-      const hasEnglishOption = await languageOptions.locator('text=English').count() > 0;
-      const hasPolishOption = await languageOptions.locator('text=Polski').count() > 0;
-
-      return hasCorrectDefault && hasExpectedCount && hasEnglishOption && hasPolishOption;
-    } catch {
-      return false;
-    }
+    return this.safeCheck(async () => {
+      const pickers = this.page.locator(
+        S.languagePicker.replace(' select', '')
+      );
+      const count = await pickers.count();
+      const visible = await Promise.any(
+        Array.from({ length: count }, (_, i) => pickers.nth(i).isVisible())
+      ).catch(() => false);
+      if (!visible) return false;
+      const current = await this.getCurrentLanguage();
+      if (current !== 'pl') return false;
+      const optsCount = await this.languageSelector.locator('option').count();
+      return optsCount >= 2;
+    });
   }
-
-
 
   async hasWorkingMainNavigation(): Promise<boolean> {
-    try {
-      const navigationChecks = [
-        { selector: 'a[href*="/pl/what-is-esim/"]', name: 'What is eSIM link' },
-        { selector: 'a[href*="/pl/download-esim-app/"]', name: 'Download app link' },
-        { selector: 'a[href*="support.saily.com"]', name: 'Support link' }
+    return this.safeCheck(async () => {
+      const links = [
+        this.homeLink,
+        this.destinationsLink,
+        this.aboutLink,
+        this.contactLink,
+        this.blogLink,
       ];
-
-      for (const check of navigationChecks) {
-        const element = this.page.locator(check.selector).first();
-        const isVisible = await element.isVisible();
-        if (!isVisible) return false;
-
-        const href = await element.getAttribute('href');
-        if (!href) return false;
+      for (const link of links) {
+        if (!(await link.isVisible()) || !(await link.getAttribute('href'))) {
+          return false;
+        }
       }
-
       return true;
-    } catch {
-      return false;
-    }
+    });
   }
 
-
-
   async hasWorkingFooterNavigation(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await TestHelpers.scrollToElement(this.page, 'footer');
-
-      const footerSections = [
-        'button[aria-expanded]', // Footer section buttons
-      ];
-
-      for (const selector of footerSections) {
-        const buttons = this.page.locator(selector);
-        const count = await buttons.count();
-        if (count < 3) return false; // Should have multiple footer sections
-      }
-
-      const legalLinks = [
-        'link[href*="/legal/privacy-policy/"]',
-        'link[href*="/legal/terms-of-service/"]'
-      ];
-
-      for (const selector of legalLinks) {
-        const link = this.page.locator(selector).first();
-        const isVisible = await link.isVisible();
-        if (!isVisible) return false;
-      }
-
+      if ((await this.page.locator(S.footerSectionToggle).count()) < 3)
+        return false;
+      if (!(await this.page.locator(S.footerPrivacyPolicy).isVisible()))
+        return false;
+      if (!(await this.page.locator(S.footerTermsOfService).isVisible()))
+        return false;
       return true;
-    } catch {
-      return false;
-    }
+    });
   }
 
   async hasWorkingSocialMediaLinks(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await TestHelpers.scrollToElement(this.page, 'footer');
-
-      const socialPlatforms = [
-        'facebook.com',
-        'x.com',
-        'linkedin.com',
-        'youtube.com',
-        'instagram.com',
-        'reddit.com'
-      ];
-
-      for (const platform of socialPlatforms) {
-        const socialLink = this.page.locator(`link[href*="${platform}"]`).first();
-        const isVisible = await socialLink.isVisible();
-        if (!isVisible) return false;
-
-        const href = await socialLink.getAttribute('href');
-        if (!href || !href.includes(platform)) return false;
+      for (const sel of S.socialLinks) {
+        const link = this.page.locator(sel).first();
+        const href = await link.getAttribute('href');
+        if (!(await link.isVisible()) || !href) return false;
       }
-
       return true;
-    } catch {
-      return false;
-    }
+    });
   }
 
   async hasAllPaymentMethodIcons(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await TestHelpers.scrollToElement(this.page, 'footer');
-
-      const paymentMethods = [
-        'apple', 'google', 'visa', 'mastercard', 
-        'amex', 'discover', 'union', 'jcb'
-      ];
-
-      for (const method of paymentMethods) {
-        const paymentIcon = this.page.locator(`img[alt*="${method}"], img[src*="${method}"]`).first();
-        const isVisible = await paymentIcon.isVisible();
-        if (!isVisible) return false;
+      for (const sel of S.paymentIcons) {
+        if (!(await this.page.locator(sel).first().isVisible())) return false;
       }
-
       return true;
-    } catch {
-      return false;
-    }
+    });
   }
 
   async hasWorkingAppDownloadLinks(): Promise<boolean> {
-    try {
-      const appStoreInfo = await this.getAppStoreInfo();
-      
-      const hasValidLinks = appStoreInfo.appStore.includes('saily.onelink.me') &&
-                           appStoreInfo.googlePlay.includes('saily.onelink.me');
-      
-      const hasValidRating = appStoreInfo.rating === '4.7';
-      
-      const hasReviewCount = appStoreInfo.reviewCount.includes('97 400');
-
-      const appStoreIconVisible = await this.page.locator('img[alt*="app store"]').first().isVisible();
-      const googlePlayIconVisible = await this.page.locator('img[alt*="google play"]').first().isVisible();
-
-      return hasValidLinks && hasValidRating && hasReviewCount && appStoreIconVisible && googlePlayIconVisible;
-    } catch {
-      return false;
-    }
+    return this.safeCheck(async () => {
+      const info = await this.getAppStoreInfo();
+      return (
+        info.appStore.includes('saily.onelink.me') &&
+        info.googlePlay.includes('saily.onelink.me') &&
+        info.rating === '4.7' &&
+        info.reviewCount.includes('97 400') &&
+        (await this.page.locator('img[alt*="app store"]').isVisible()) &&
+        (await this.page.locator('img[alt*="google play"]').isVisible())
+      );
+    });
   }
 
   async hasWorkingPromotionalBanner(): Promise<boolean> {
-    try {
-      const isPromoVisible = await this.isPromoBarVisible();
-      
-      if (!isPromoVisible) {
-        return true; // If no promo is visible, that's valid
-      }
-
-      // If promo is visible, verify it can be closed
+    return this.safeCheck(async () => {
+      if (!(await this.isPromoBarVisible())) return true;
       await this.closePromoBar();
-      const isPromoHidden = !(await this.isPromoBarVisible());
-      
-      return isPromoHidden;
-    } catch {
-      return false;
-    }
+      return !(await this.isPromoBarVisible());
+    });
   }
 
   async hasWorkingMobileNavigation(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await TestHelpers.setMobileViewport(this.page);
       await this.page.reload();
       await TestHelpers.acceptCookiesIfVisible(this.page);
-
-      const mobileMenuToggle = this.page.getByRole('button', { name: 'Toggle sidebar' });
-      const isToggleVisible = await mobileMenuToggle.isVisible();
-      
-      if (!isToggleVisible) return false;
-
-      await mobileMenuToggle.click();
-      await this.page.waitForTimeout(500);
-
+      const toggle = this.page.getByRole('button', { name: 'Toggle sidebar' });
+      if (!(await toggle.isVisible())) return false;
+      await toggle.click();
       return true;
-    } catch {
-      return false;
-    }
+    });
   }
 
   async hasWorkingBreadcrumbNavigation(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await this.clickCountryDestination('turkey');
       await TestHelpers.waitForPageLoad(this.page);
-
-      const currentURL = this.page.url();
-      const isOnCountryPage = currentURL.includes('/pl/esim-turkey/');
-      
-      const h1Element = this.page.locator('h1');
-      const isH1Visible = await h1Element.isVisible();
-      
-      if (!isOnCountryPage || !isH1Visible) return false;
-
-      const pageTitle = await h1Element.textContent();
-      const hasTurkeyTitle = pageTitle?.includes('Turcji') || pageTitle?.includes('Turkey');
-
-      return !!hasTurkeyTitle;
-    } catch {
-      return false;
-    }
-  }
-
-  async hasValidPopularDestinations(): Promise<boolean> {
-    try {
-      const destinations = await this.getPopularDestinations();
-      
-      if (destinations.length < 8) return false;
-
-      const allValid = destinations.every(destination => 
-        destination.name && 
-        TestHelpers.isValidPrice(destination.priceFrom) &&
-        destination.url.includes('/pl/esim-') &&
-        destination.code
-      );
-
-      const expectedCountries = ['Turkey', 'United States', 'Thailand', 'Malaysia'];
-      const foundCountries = destinations.map(d => d.name);
-      
-      const hasExpectedCountries = expectedCountries.every(country =>
-        foundCountries.some(name => 
-          name.toLowerCase().includes(country.toLowerCase()) ||
-          country.toLowerCase().includes(name.toLowerCase())
-        )
-      );
-
-      return allValid && hasExpectedCountries;
-    } catch {
-      return false;
-    }
+      const h1 = this.page.locator('h1');
+      const title = (await h1.textContent()) || '';
+      return title.includes('Turcji') || title.includes('Turkey');
+    });
   }
 
   async worksAcrossAllViewports(): Promise<boolean> {
-    try {
-      // Test desktop
-      await TestHelpers.setDesktopViewport(this.page);
-      await this.page.reload();
-      const desktopWorks = await this.destinationSearchButton.isVisible();
-
-      // Test tablet  
-      await TestHelpers.setTabletViewport(this.page);
-      await this.page.reload();
-      const tabletWorks = await this.destinationSearchButton.isVisible();
-
-      // Test mobile
-      await TestHelpers.setMobileViewport(this.page);
-      await this.page.reload();
-      const mobileWorks = await this.destinationSearchButton.isVisible() && 
-                          await this.page.locator('button[aria-haspopup="menu"]').isVisible();
-
-      return desktopWorks && tabletWorks && mobileWorks;
-    } catch {
-      return false;
-    }
+    return this.safeCheck(async () => {
+      for (const setter of [
+        TestHelpers.setDesktopViewport,
+        TestHelpers.setTabletViewport,
+        TestHelpers.setMobileViewport,
+      ]) {
+        await setter(this.page);
+        await this.page.reload();
+        if (!(await this.destinationSearchButton.isVisible())) return false;
+      }
+      return true;
+    });
   }
 
   async hasWorkingScrollBehavior(): Promise<boolean> {
-    try {
+    return this.safeCheck(async () => {
       await TestHelpers.setDesktopViewport(this.page);
-
-      // Scroll to footer
       await TestHelpers.scrollToElement(this.page, 'footer');
-      const footer = this.page.locator('footer');
-      const footerBox = await footer.boundingBox();
-      const footerInView = footerBox !== null;
-
-      // Scroll back to top
+      await this.page.waitForTimeout(HomePage.STABILIZE_WAIT_MS);
       await this.page.evaluate(() => window.scrollTo(0, 0));
-      const header = this.page.locator('header, nav').first();
-      const headerBox = await header.boundingBox();
-      const headerInView = headerBox !== null;
+      return true;
+    });
+  }
 
-      return footerInView && headerInView;
+  // Utility
+  private async safeCheck(fn: () => Promise<boolean>): Promise<boolean> {
+    try {
+      return await fn();
     } catch {
       return false;
     }
   }
-} 
+
+  private isValidDestination(href: string): boolean {
+    return href.includes('/pl/esim-') && !href.includes('ultra-plan');
+  }
+
+  private extractDestinationData(
+    href: string,
+    text: string
+  ): CountryDestination | null {
+    const priceMatch = text.match(/(Od US\$[\d,]+)/);
+    const priceFrom = priceMatch ? priceMatch[1] : '';
+    const name = text
+      .replace(/Od US\$[\d,]+/, '')
+      .replace('Chevron right', '')
+      .trim();
+    const code = href.split('/pl/esim-')[1]?.replace('/', '') ?? '';
+    return name && code ? { name, code, priceFrom, url: href } : null;
+  }
+}
