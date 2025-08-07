@@ -1,4 +1,4 @@
-import { test, expect } from '@playwright/test';
+import { test } from '@playwright/test';
 import { HomePage } from '../../pages/HomePage';
 import { TestHelpers } from '../../utils/testHelpers';
 import { SearchModal } from '../../pages/SearchModal';
@@ -8,19 +8,13 @@ test.describe('Destination Search Functionality', () => {
   let searchModal: SearchModal;
 
   test.beforeEach(async ({ page }) => {
-    // Setup anti-detection measures
-    await TestHelpers.setupAntiDetection(page);
-    
     homePage = new HomePage(page);
     searchModal = new SearchModal(page); // Initialize SearchModal
     await homePage.navigate();
     await TestHelpers.acceptCookiesIfVisible(page);
-    
-    // Add human-like delay after setup
-    await TestHelpers.humanLikeDelay(800, 1500);
   });
 
-  test('Search modal opens and closes correctly', async ({ page }) => {
+  test('Search modal opens and closes correctly', async ({}) => {
     // given
     await searchModal.expectToBeHidden();
 
@@ -38,7 +32,7 @@ test.describe('Destination Search Functionality', () => {
     await searchModal.expectToBeHidden();
   });
 
-  test('Search input accepts and displays text correctly', async ({ page }) => {
+  test('Search input accepts and displays text correctly', async ({}) => {
     // given
     const searchTerm = 'Spain';
     await homePage.openDestinationSearch();
@@ -50,7 +44,7 @@ test.describe('Destination Search Functionality', () => {
     await searchModal.expectInputToContain(searchTerm);
   });
 
-  test('Search returns valid results for existing countries', async ({ page }) => {
+  test('Search returns valid results for existing countries', async ({}) => {
     // given
     await homePage.openDestinationSearch();
 
@@ -63,7 +57,7 @@ test.describe('Destination Search Functionality', () => {
     await searchModal.expectDestinationCodesVisible();
   });
 
-  test('Search handles invalid input gracefully', async ({ page }) => {
+  test('Search handles invalid input gracefully', async ({}) => {
     // given
     await homePage.openDestinationSearch();
 
@@ -74,44 +68,47 @@ test.describe('Destination Search Functionality', () => {
     await searchModal.expectGracefulHandling();
   });
 
-
-  test('Popular destinations display correctly in search modal', async ({ page }) => {
+  test('Popular destinations display correctly in search modal', async ({}) => {
     // given
     await homePage.openDestinationSearch();
 
     // when
-    // (modal is already open from given step)
-
     // then
     await searchModal.expectPopularDestinationsDisplayedCorrectly();
   });
 
-  test('Search result navigation works correctly', async ({ page }) => {
+  test('Search result navigation works correctly', async ({}) => {
     // given
     await homePage.openDestinationSearch();
     await searchModal.searchDestination('Spain');
-    
-    // when & then
+
+    // when
+    // then
     await searchModal.expectNavigationToWorkCorrectly();
   });
-
 
   test('Search modal keyboard navigation works', async ({ page }) => {
     // given
     await homePage.openDestinationSearch();
-    
+
     // when
     await page.keyboard.press('Escape');
-    
+
     // then
-    await TestHelpers.expectTrue(await searchModal.isHidden(), 'Search modal closes on Escape key');
-    
+    await TestHelpers.expectTrue(
+      await searchModal.isHidden(),
+      'Search modal closes on Escape key'
+    );
+
     // when
     await homePage.openDestinationSearch();
     await searchModal.fillInput('Thailand');
-    
+
     // then
     const inputValue = await searchModal.getInputValue();
-    await TestHelpers.expectTrue(inputValue === 'Thailand', 'Keyboard typing works in search input');
+    await TestHelpers.expectTrue(
+      inputValue === 'Thailand',
+      'Keyboard typing works in search input'
+    );
   });
-}); 
+});

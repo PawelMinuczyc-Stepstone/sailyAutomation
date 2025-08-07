@@ -29,10 +29,13 @@ export class SnapshotHelpers {
       element = page,
       waitForNetworkIdle = true,
       waitForAnimations = true,
-      log = false
+      log = false,
     } = options;
 
-    await this.waitForStability(page, { waitForNetworkIdle, waitForAnimations });
+    await this.waitForStability(page, {
+      waitForNetworkIdle,
+      waitForAnimations,
+    });
 
     if (log) console.log(`📸 Taking screenshot: ${name}`);
 
@@ -44,12 +47,20 @@ export class SnapshotHelpers {
     });
   }
 
-  static async updateBaseline(page: Page, name: string, options: ScreenshotOptions = {}) {
+  static async updateBaseline(
+    page: Page,
+    name: string,
+    options: ScreenshotOptions = {}
+  ) {
     if (options.log) console.log(`🔄 Updating baseline: ${name}`);
     await this.takeStableScreenshot(page, `baseline-${name}`, options);
   }
 
-  static async compareWithBaseline(page: Page, name: string, options: ScreenshotOptions = {}) {
+  static async compareWithBaseline(
+    page: Page,
+    name: string,
+    options: ScreenshotOptions = {}
+  ) {
     if (options.log) console.log(`🔍 Comparing with baseline: ${name}`);
     return this.takeStableScreenshot(page, `current-${name}`, options);
   }

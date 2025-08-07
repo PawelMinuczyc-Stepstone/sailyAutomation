@@ -14,12 +14,14 @@
     "test:debug": "playwright test --debug",
     "report": "playwright show-report reports/html-report",
     "codegen": "playwright codegen",
-    "lint": "eslint . --ext .ts,.js",
-    "lint:fix": "eslint . --ext .ts,.js --fix",
+    "lint": "eslint . --ext .ts",
+    "lint:fix": "eslint . --ext .ts --fix",
     "format": "prettier --write .",
+    "format:check": "prettier --check .",
     "test:snapshots": "playwright test tests/visual/snapshot.test.ts",
     "test:snapshots:update": "playwright test tests/visual/snapshot.test.ts --update-snapshots",
-    "test:snapshots:headed": "playwright test tests/visual/snapshot.test.ts --headed"
+    "test:snapshots:headed": "playwright test tests/visual/snapshot.test.ts --headed",
+    "check-unused": "tsc --noEmit --noUnusedLocals --noUnusedParameters"
   },
   "keywords": [
     "playwright",
@@ -35,7 +37,7 @@
     "@types/node": "^20.0.0",
     "@typescript-eslint/eslint-plugin": "^8.39.0",
     "@typescript-eslint/parser": "^8.39.0",
-    "eslint": "^8.0.0",
+    "eslint": "^8.57.1",
     "eslint-config-prettier": "^9.0.0",
     "prettier": "^3.0.0",
     "typescript": "^5.0.0"
