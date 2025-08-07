@@ -68,13 +68,19 @@ npm run lint:fix
 
 - **Configuration**: Move hardcoded values (timeouts, country codes, etc.) to environment variables or fixtures.
 - **Test Coverage**:
-  - Extend CI matrix to include Firefox and WebKit consistently.
+  - Extend the CI matrix to include Firefox and WebKit consistently.
   - Add mobile device profiles (e.g., Galaxy S24, Pixel 8).
-  - Implement negative-path and fault-injection tests in a lower test layer (e.g., integration, component).
-  - Implement missing tests!
-  - Split Page classes for desktop and mobile
-  - Stabilize snapshot tests
-  - For production - we need to use docker, tests databeses etc. 
+  - Implement missing tests and negative-path scenarios in a lower-level test layer (e.g., integration, component).
+  - Implement full customer journeys.
+- **Code Structure**:
+  - Split Page Object classes for desktop and mobile flows.
+- **Stability & Reliability**:
+  - Stabilize snapshot tests to reduce flakiness.
+- **Production Readiness**:
+  - Use Docker and configure dedicated test databases for production-grade reliability.
+- **Accessibility**:
+  - Add accessibility testing to ensure compliance and inclusivity.
+- **Internationalization**:
+  - Ensure tests are written in a language-independent manner for scalability and maintainability.
 - **Performance**:
-  - Define performance budgets.
-  - Add load-time regression checks, including Core Web Vitals.
+  - Define performance budgets and add load-time regression checks, including Core Web Vitals.
